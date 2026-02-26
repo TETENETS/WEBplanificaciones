@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TETENET - App</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script src="db.js"></script>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>TETENET</h2>
+            <input type="email" id="login-user" placeholder="Usuario" value="analista@econet.com">
+            <input type="password" id="login-pass" placeholder="Contraseña" value="123">
+            <button class="btn btn-primary" onclick="AuthModule.login()">Ingresar</button>
+            <p id="login-error" style="color:red; display:none;">Datos incorrectos</p>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden">
+        
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">TETENET</div>
+            <ul class="sidebar-menu" id="menu-analista">
+                <li onclick="UIModule.navigate('dashboard-analista')">Dashboard Analista</li>
+                <li onclick="UIModule.navigate('nuevo-ticket')">Nuevo Ticket</li>
+                <li onclick="UIModule.navigate('planificacion')">Planificación</li> 
+                <li onclick="AuthModule.logout()">Salir</li>
+            </ul>
+            <ul class="sidebar-menu hidden" id="menu-operaciones">
+                <li onclick="UIModule.navigate('dashboard-operaciones')">Mis Tickets</li>
+                <li onclick="AuthModule.logout()">Salir</li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div class="top-header">
+                <button class="menu-toggle" onclick="UIModule.toggleSidebar()">☰ Menú</button>
+                <h3 id="view-title" style="margin:0;">Dashboard</h3>
+                <div><strong id="current-user-name">...</strong></div>
+            </div>
+
+            <div id="view-dashboard-analista" class="view hidden">
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h4 style="margin-top:0;">Resumen del Día</h4>
+                        <div class="chart-wrapper"><canvas id="chartDiario"></canvas></div>
+                    </div>
+                    <div class="chart-container">
+                        <h4 style="margin-top:0;">Volumen Semanal (Todos)</h4>
+                        <div class="chart-wrapper"><canvas id="chartSemanalBarras"></canvas></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h4>Gestión de Tickets</h4>
+                    <table id="table-all-tickets">
+                        <thead><tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Técnico</th>
+                                <th>Estado</th>
+                                <th>F. Asignación</th>
+                                <th>F. Solución</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                            <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="view-planificacion" class="view hidden">
+                    <div class="kanban-board" id="kanban-board">
+                        </div>
+                </div>
+
+
+            <div id="view-nuevo-ticket" class="view card hidden">
+                <h3>Crear Soporte</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cédula</label>
+                        <div style="display:flex; gap:5px;">
+                            <select id="nt-cedula-tipo" style="width: 60px;">
+                                <option value="V">V</option>
+                                <option value="E">E</option>
+                                <option value="J">J</option>
+                            </select>
+                            <input type="text" id="nt-cedula-num" placeholder="12345678" style="flex:1;">
+                            <button class="btn btn-primary" onclick="TicketModule.buscarCliente()">Buscar</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="nt-datos-cliente" class="hidden">
+                    <hr>
+                    <div class="form-row">
+                        <div class="form-group"><label>Nombre</label><input type="text" id="nt-nombre"></div>
+                        <div class="form-group"><label>Teléfono</label><input type="text" id="nt-telefono"></div>
+                        <div class="form-group"><label>Zona</label><input type="text" id="nt-zona"></div>
+                        <div class="form-group"><label>Caja NAP</label><input type="text" id="nt-caja-nap"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Motivo</label>
+                            <select id="nt-motivo" onchange="TicketModule.toggleMotivo()">
+                                <option>Sin navegación</option>
+                                <option>Intermitencia</option>
+                                <option>Cambio de equipo</option>
+                                <option>Mudanza</option>
+                                <option value="Otro">Otro (Especificar)</option>
+                            </select>
+                            <input type="text" id="nt-motivo-otro" class="hidden" placeholder="Especifique el motivo..." style="margin-top: 8px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Asignar Técnico</label>
+                            <select id="nt-tecnico" onchange="TicketModule.generarHoras()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Hora</label>
+                            <select id="nt-hora"></select>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="TicketModule.crearTicket()">Guardar Ticket</button>
+                </div>
+            </div>
+
+            <div id="view-dashboard-operaciones" class="view card hidden">
+                <h4>Mis Tickets</h4>
+                <table id="table-op-tickets">
+                    <thead><tr><th>ID</th><th>Cliente</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div id="view-resolver-ticket" class="view card hidden">
+                <h3>Resolver Ticket <span id="rt-id"></span></h3>
+                <div class="form-row">
+                    <div class="form-group"><strong>Cliente:</strong> <span id="rt-cliente"></span></div>
+                    <div class="form-group"><strong>Dirección:</strong> <span id="rt-dir"></span></div>
+                    <div class="form-group"><strong>Caja NAP:</strong> <span id="rt-caja-nap"></span></div>
+                </div>
+                <hr>
+                <div class="form-group"><label>Trabajo Realizado</label><textarea id="rt-descripcion" rows="3"></textarea></div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Materiales</label>
+                        <select id="rt-uso-materiales" onchange="TicketModule.toggleMateriales()"><option value="no">No</option><option value="si">Sí</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo Visita</label>
+                        <select id="rt-tipo-visita" onchange="TicketModule.calcularTotal()"><option value="garantia">Garantía ($0)</option><option value="paga">Cobro Base ($10)</option></select>
+                    </div>
+                </div>
+                <div id="rt-seccion-materiales" class="hidden" style="background: #f8f9fa; padding:10px;">
+                    <div id="rt-lista-materiales"></div>
+                    <button class="btn btn-info" onclick="TicketModule.agregarMaterial()">+ Material</button>
+                </div>
+                <h3 style="text-align:right;">Total: $<span id="rt-total-monto">0.00</span></h3>
+                <hr>
+                <label>Firma Cliente</label>
+                <canvas id="signature-pad"></canvas>
+                <div style="margin-top: 15px; display:flex; gap:5px; flex-wrap:wrap;">
+                    <button class="btn btn-success" onclick="TicketModule.cerrarTicket('resuelto')">Resuelto</button>
+                    <button class="btn btn-danger" onclick="TicketModule.cerrarTicket('sin resolver')">Sin Resolver</button>
+                    <button class="btn btn-warning" onclick="TicketModule.cerrarTicket('pendiente')">Pausar</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="modal-preview" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" onclick="UIModule.cerrarPreview()">&times;</span>
+            <div id="pdf-content" style="padding: 20px;"></div>
+            <div id="pdf-actions" style="margin-top: 20px; text-align: right;"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
