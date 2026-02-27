@@ -6,6 +6,7 @@ COPY . /usr/share/nginx/html
 RUN echo 'window.ENV = { \
     WEBHOOK_NUEVO_TICKET: "${WEBHOOK_NUEVO_TICKET}", \
     WEBHOOK_INICIAR_SOPORTE: "${WEBHOOK_INICIAR_SOPORTE}", \
+    WEBHOOK_CARGAR_DATOS: "${WEBHOOK_CARGAR_DATOS}", \
     WEBHOOK_CERRAR_TICKET: "${WEBHOOK_CERRAR_TICKET}" \
 };' > /usr/share/nginx/html/env.template.js
 
