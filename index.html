@@ -151,6 +151,13 @@
                             <select id="rt-tipo-visita" onchange="TicketModule.calcularTotal()"><option value="garantia">Garantía ($0)</option><option value="paga">Cobro Base ($10)</option></select>
                         </div>
                     </div>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e7eaec;">
+                        <div class="form-row" style="margin-bottom: 0;">
+                            <div class="form-group" style="margin-bottom: 10px;"><strong>Cliente:</strong> <span id="rt-cliente"></span></div>
+                            <div class="form-group" style="margin-bottom: 10px;"><strong>Dirección:</strong> <span id="rt-dir"></span></div>
+                            <div class="form-group" style="margin-bottom: 0;"><strong>Caja NAP:</strong> <span id="rt-caja-nap"></span></div>
+                        </div>
+                    </div>
                     <div id="rt-seccion-materiales" class="hidden" style="background: #f8f9fa; padding:10px;">
                         <div id="rt-lista-materiales"></div>
                         <button class="btn btn-info" onclick="TicketModule.agregarMaterial()">+ Material</button>
