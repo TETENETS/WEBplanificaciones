@@ -26,14 +26,17 @@
     </div>
 
     <div id="app-container" class="hidden">
+        
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">TETENET</div>
+            
             <ul class="sidebar-menu" id="menu-analista">
                 <li onclick="UIModule.navigate('dashboard-analista')">Dashboard Analista</li>
                 <li onclick="UIModule.navigate('nuevo-ticket')">Nuevo Ticket</li>
                 <li onclick="UIModule.navigate('planificacion')">Planificación</li> 
                 <li onclick="AuthModule.logout()">Salir</li>
             </ul>
+            
             <ul class="sidebar-menu hidden" id="menu-operaciones">
                 <li onclick="UIModule.navigate('dashboard-operaciones')">Mis Tickets</li>
                 <li onclick="AuthModule.logout()">Salir</li>
@@ -41,6 +44,7 @@
         </div>
 
         <div class="main-content">
+            
             <div class="top-header">
                 <button class="menu-toggle" onclick="UIModule.toggleSidebar()">☰ Menú</button>
                 <h3 id="view-title" style="margin:0;">Dashboard</h3>
@@ -135,9 +139,19 @@
 
             <div id="view-resolver-ticket" class="view card hidden">
                 <h3 style="margin-top: 0; color: #288fad;">Ticket: <span id="rt-id"></span></h3>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e7eaec; margin-bottom: 15px;">
+                    <div class="form-row" style="margin-bottom: 0;">
+                        <div class="form-group" style="margin-bottom: 10px;"><strong>Cliente:</strong> <span id="rt-cliente"></span></div>
+                        <div class="form-group" style="margin-bottom: 10px;"><strong>Dirección:</strong> <span id="rt-dir"></span></div>
+                        <div class="form-group" style="margin-bottom: 0;"><strong>Caja NAP:</strong> <span id="rt-caja-nap"></span></div>
+                    </div>
+                </div>
+
                 <div id="rt-estado-pendiente" class="hidden" style="text-align: center; padding: 30px; border: 2px dashed #288fad; border-radius: 8px;">
                     <button class="btn btn-primary" onclick="TicketModule.iniciarSoporte()">▶ Iniciar Soporte</button>
                 </div>
+                
                 <div id="rt-formulario-resolucion">
                     <hr>
                     <div class="form-group"><label>Trabajo Realizado</label><textarea id="rt-descripcion" rows="3"></textarea></div>
@@ -151,27 +165,25 @@
                             <select id="rt-tipo-visita" onchange="TicketModule.calcularTotal()"><option value="garantia">Garantía ($0)</option><option value="paga">Cobro Base ($10)</option></select>
                         </div>
                     </div>
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e7eaec;">
-                        <div class="form-row" style="margin-bottom: 0;">
-                            <div class="form-group" style="margin-bottom: 10px;"><strong>Cliente:</strong> <span id="rt-cliente"></span></div>
-                            <div class="form-group" style="margin-bottom: 10px;"><strong>Dirección:</strong> <span id="rt-dir"></span></div>
-                            <div class="form-group" style="margin-bottom: 0;"><strong>Caja NAP:</strong> <span id="rt-caja-nap"></span></div>
-                        </div>
-                    </div>
+                    
                     <div id="rt-seccion-materiales" class="hidden" style="background: #f8f9fa; padding:10px;">
                         <div id="rt-lista-materiales"></div>
                         <button class="btn btn-info" onclick="TicketModule.agregarMaterial()">+ Material</button>
                     </div>
+                    
                     <h3 style="text-align:right;">Total: $<span id="rt-total-monto">0.00</span></h3>
                     <hr>
+                    
                     <label>Firma Cliente</label>
                     <canvas id="signature-pad"></canvas>
+                    
                     <div style="margin-top: 15px;">
                         <button class="btn btn-success" onclick="TicketModule.cerrarTicket('resuelto')">Resuelto</button>
                         <button class="btn btn-danger" onclick="TicketModule.cerrarTicket('sin resolver')">Sin Resolver</button>
                     </div>
                 </div>
             </div>
+            
         </div>
     </div>
 </body>
