@@ -1968,7 +1968,23 @@ function AppProvider({ children }) {
     return (<div>🔄 Cargando...</div>);
   }
   
-  // ✅ Un solo return
+  if (iniciando) {
+    return (
+      <div style={{
+        height: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'var(--color-sidebar)',
+        color: '#fff',
+        fontSize: '1.2em'
+      }}>
+        🔄 Cargando...
+      </div>
+    );
+  }
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
   return (
     <AppCtx.Provider value={{
       user, login, loginMagic, logout,
@@ -1982,13 +1998,4 @@ function AppProvider({ children }) {
       {children}
     </AppCtx.Provider>
   );
-}
-// 2️⃣ App (debe ser SIMPLE - 5 líneas)
-// 2️⃣ App (debe ser SIMPLE - 5 líneas)
-export default function App() {
-  return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
-  );
-}
+}  // ← Fin de AppProvider
