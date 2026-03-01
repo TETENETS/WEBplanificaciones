@@ -294,206 +294,6 @@ const API = {
 // ============================================================
 const AppCtx = createContext(null);
 
-function AppProvider({ children }) {
-  const [user,         setUser]         = useState(null);
-  const [iniciando,    setIniciando]    = useState(true); // ← AGREGAR ESTO
-  const [tickets,      setTickets]      = useState([]);
-  const [tecnicos,     setTecnicos]     = useState([]);
-  const [materiales,   setMateriales]   = useState([]);
-  const [notification, setNotification] = useState(null);
-  const [magicTicket,  setMagicTicket]  = useState(null);
-  const [cargando,     setCargando]     = useState(false);
-
-  // Restaurar sesión al cargar la página
-  useEffect(() => {
-    const restaurarSesion = async () => {
-      const token = localStorage.getItem("tetenet_token");
-      if (!token) {
-        setIniciando(false);
-        return;
-      }
-
-      try {
-        // Validar el token con el backend
-        const res = await apiFetch("/auth/verify");
-        if (res.ok && res.user) {
-          setUser(res.user);
-          await cargarCatalogos();
-          await cargarTickets();
-        } else {
-          // Token inválido → limpiar
-          localStorage.removeItem("tetenet_token");
-        }
-      } catch (error) {
-        console.error("Error restaurando sesión:", error);
-        localStorage.removeItem("tetenet_token");
-      } finally {
-        setIniciando(false);
-      }
-    };
-
-    restaurarSesion();
-  }, []); // Solo al montar el componente
-
-  // Muestra una notificación toast por N ms
-  const showNotif = useCallback((msg, type = "info", duration = 4000) => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), duration);
-  }, []);
-
-  // Carga catálogos una vez que hay sesión activa
-  const cargarCatalogos = useCallback(async () => {
-    const [resTecnicos, resMateriales] = await Promise.all([
-      API.getTecnicos(),
-      API.getMateriales(),
-    ]);
-    if (resTecnicos.ok)  setTecnicos(resTecnicos.tecnicos);
-    if (resMateriales.ok) setMateriales(resMateriales.materiales);
-  }, []);
-
-  // Carga todos los tickets del servidor
-  const cargarTickets = useCallback(async () => {
-    const res = await API.getTickets();
-    if (res.ok) setTickets(res.tickets);
-  }, []);
-
-  // ── LOGIN ─────────────────────────────────────────────────
-  const login = async (email, password) => {
-    const res = await API.login(email, password);
-    if (res.ok) {
-      localStorage.setItem("tetenet_token", res.token);
-      setUser(res.user);
-      await cargarCatalogos();
-      await cargarTickets();
-      return true;
-    }
-    return false;
-  };
-
-  // Login por link mágico (el técnico abre el enlace desde WhatsApp)
-  const loginMagic = async (tecnicoId) => {
-    if (ENV.MOCK_MODE) {
-      const found = MOCK_USERS.find(u => u.id === tecnicoId);
-      if (found) {
-        setUser(found);
-        await cargarCatalogos();
-        await cargarTickets();
-      }
-    }
-    // En producción: el token viene en la URL y ya está guardado antes de llamar esto
-  };
-
-  const logout = () => {
-    localStorage.removeItem("tetenet_token");
-    setUser(null);
-    setTickets([]);
-  };
-
-  // ── VALIDACIÓN DE DUPLICADOS ──────────────────────────────
-  // Verifica si un técnico ya tiene un ticket a esa hora y fecha.
-  // excludeId: permite excluir el ticket actual al modificar.
-  const checkDuplicate = (tecnicoId, fecha, hora, excludeId = null) =>
-    tickets.find(t => t.tecnicoId === tecnicoId && t.fecha === fecha && t.hora === hora && t.id !== excludeId) || null;
-
-  // ── ACCIONES DE TICKETS ───────────────────────────────────
-  const addTicket = async (datosTicket) => {
-    const dup = checkDuplicate(datosTicket.tecnicoId, datosTicket.fecha, datosTicket.hora);
-    if (dup) {
-      showNotif(`⛔ Conflicto: ${datosTicket.tecnicoNombre} ya tiene el ticket ${dup.id} asignado a las ${dup.hora} el ${dup.fecha}`, "danger", 7000);
-      return null;
-    }
-    const res = await API.crearTicket({
-      ...datosTicket,
-      creadoPor: user.id,
-      historial: [{ ts: new Date().toLocaleString(), user: user.nombre, accion: "Ticket creado" }],
-      comentarios: [],
-    });
-    if (!res.ok) { showNotif("Error al crear el ticket", "danger"); return null; }
-
-    const nuevoTicket = { ...res.ticket, comentarios: [], historial: res.ticket.historial || [] };
-    setTickets(prev => [...prev, nuevoTicket]);
-    setMagicTicket(nuevoTicket);
-    showNotif(`📱 WhatsApp enviado a ${datosTicket.tecnicoNombre}: Nuevo ticket para ${datosTicket.clienteNombre} a las ${datosTicket.hora}`, "success", 6000);
-    return nuevoTicket;
-  };
-
-  // updateTicket: actualiza campos localmente (sin llamada API)
-  // Para acciones que tienen su propio endpoint (iniciar, cerrar, cobro)
-  // los componentes llaman a la función específica que sí llama la API.
-  const updateTicket = (id, changes, accion) => {
-    setTickets(prev => prev.map(t => t.id === id
-      ? { ...t, ...changes, historial: [...(t.historial || []), { ts: new Date().toLocaleString(), user: user?.nombre || "Sistema", accion }] }
-      : t
-    ));
-  };
-
-  const deleteTicket = (id) => {
-    setTickets(prev => prev.filter(t => t.id !== id));
-    showNotif("Ticket eliminado correctamente", "warning");
-  };
-
-  const iniciarTicket = async (id) => {
-    const res = await API.iniciarTicket(id, user.id);
-    if (res.ok) {
-      updateTicket(id, { estado: "encurso" }, "Soporte iniciado");
-      showNotif(`📱 WhatsApp: Ticket ${id} ha sido INICIADO`, "info");
-    }
-  };
-
-  const cerrarTicket = async (id, datos) => {
-    const res = await API.cerrarTicket(id, { ...datos, tecnicoId: user.id });
-    if (res.ok) {
-      const fechaCierre = res.fechaCierre || new Date().toLocaleString("es-VE");
-      updateTicket(id, { ...datos, fechaCierre }, `Ticket cerrado como ${datos.estado}`);
-      showNotif(`📱 WhatsApp: Ticket ${id} CERRADO — ${datos.estado.toUpperCase()}`, datos.estado === "resuelto" ? "success" : "danger");
-    }
-  };
-
-  const actualizarCobro = async (id, cobro) => {
-    const res = await API.actualizarCobro(id, cobro);
-    if (res.ok) {
-      updateTicket(id, { cobro }, `Estado cobro → ${cobro}`);
-      showNotif("Estado de cobro actualizado", "success");
-    }
-  };
-
-  // ── COMENTARIOS INTERNOS ──────────────────────────────────
-  const addComentario = async (ticketId, texto) => {
-    const comentario = {
-      id: "c" + Date.now(), userId: user.id, userName: user.nombre,
-      userRol: user.rol, ts: new Date().toLocaleString(), texto,
-    };
-    // Optimistic update: actualiza localmente de inmediato
-    setTickets(prev => prev.map(t => t.id === ticketId
-      ? { ...t, comentarios: [...(t.comentarios || []), comentario] }
-      : t
-    ));
-    // Luego sincroniza con el servidor
-    await API.comentario("agregar", { ticketId, ...comentario });
-  };
-
-  const removeComentario = async (ticketId, comentarioId) => {
-    setTickets(prev => prev.map(t => t.id === ticketId
-      ? { ...t, comentarios: t.comentarios.filter(c => c.id !== comentarioId) }
-      : t
-    ));
-    await API.comentario("eliminar", { ticketId, comentarioId });
-  };
-
-  return (
-    <AppCtx.Provider value={{
-      user, login, loginMagic, logout,
-      tickets, addTicket, updateTicket, deleteTicket, iniciarTicket, cerrarTicket, actualizarCobro,
-      notification, showNotif,
-      magicTicket, setMagicTicket,
-      tecnicos, materiales, checkDuplicate,
-      addComentario, removeComentario,
-      cargando, cargarTickets,
-    }}>
-      {children}
-    </AppCtx.Provider>
-  );
-}
 
 const useApp = () => useContext(AppCtx);
 
@@ -1955,19 +1755,39 @@ function AppContent() {
   return user ? <AppLayout /> : <Login />;
 }
 
-// 1️⃣ AppProvider (aquí va TODO el código del Bug 3)
 function AppProvider({ children }) {
-  const [iniciando, setIniciando] = useState(true);
-  
+  const [user, setUser] = useState(null);
+  const [iniciando, setIniciando] = useState(true); // Estado para el loader
+  const [tickets, setTickets] = useState([]);
+  // ... resto de los estados (tecnicos, materiales, etc.)
+
   useEffect(() => {
-    // ... código de restaurar sesión ...
+    const restaurarSesion = async () => {
+      const token = localStorage.getItem("tetenet_token");
+      if (!token) {
+        setIniciando(false);
+        return;
+      }
+      try {
+        const res = await apiFetch("/auth/verify");
+        if (res.ok && res.user) {
+          setUser(res.user);
+          await cargarCatalogos();
+          await cargarTickets();
+        } else {
+          localStorage.removeItem("tetenet_token");
+        }
+      } catch (error) {
+        console.error("Error restaurando sesión:", error);
+        localStorage.removeItem("tetenet_token");
+      } finally {
+        setIniciando(false);
+      }
+    };
+    restaurarSesion();
   }, []);
-  
-  // ✅ Loader va AQUÍ
-  if (iniciando) {
-    return (<div>🔄 Cargando...</div>);
-  }
-  
+
+  // ✅ Agrega el loader aquí mismo dentro del Provider
   if (iniciando) {
     return (
       <div style={{
@@ -1979,11 +1799,10 @@ function AppProvider({ children }) {
         color: '#fff',
         fontSize: '1.2em'
       }}>
-        🔄 Cargando...
+        🔄 Cargando sesión...
       </div>
     );
   }
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   return (
     <AppCtx.Provider value={{
@@ -1998,4 +1817,4 @@ function AppProvider({ children }) {
       {children}
     </AppCtx.Provider>
   );
-}  // ← Fin de AppProvider
+}
