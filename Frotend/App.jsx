@@ -416,7 +416,7 @@ function AppProvider({ children }) {
     showNotif(`📱 WhatsApp enviado a ${datosTicket.tecnicoNombre}: Nuevo ticket para ${datosTicket.clienteNombre} a las ${datosTicket.hora}`, "success", 6000);
     return nuevoTicket;
   };
-
+// updateTicket: actualiza campos localmente (sin llamada API)
   // updateTicket: actualiza campos localmente (sin llamada API)
   // Para acciones que tienen su propio endpoint (iniciar, cerrar, cobro)
   // los componentes llaman a la función específica que sí llama la API.
