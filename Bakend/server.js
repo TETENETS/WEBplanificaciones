@@ -88,25 +88,24 @@ app.use(express.json({ limit: "10mb" }));
 
 // GET /planilla-publica/:ticketId?token=XXX
 // Ruta pública — solo valida el token firmado, no requiere login
+// GET /planilla-publica/:ticketId
+// Ruta pública — solo valida que el ticket exista
 app.get("/planilla-publica/:ticketId", async (req, res) => {
   const { ticketId } = req.params;
-  const { token }    = req.query;
 
   try {
-    // Verifica el token con el mismo JWT_SECRET
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const result = await db.query(`
+      SELECT t.*, u.nombre AS tecnico_nombre
+      FROM tickets t
+      LEFT JOIN usuarios u ON u.id = t.tecnico_id
+      WHERE t.id = $1
+    `, [ticketId]);
 
-    // El token debe haber sido creado para ESTE ticket
-    if (payload.ticketId !== ticketId) {
-      return res.status(403).json({ ok: false, mensaje: "Token inválido para este ticket" });
-    }
-
-    const result = await db.query("SELECT * FROM tickets WHERE id = $1", [ticketId]);
-    if (result.rows.length === 0) return res.status(404).json({ ok: false });
+    if (result.rows.length === 0) return res.status(404).json({ ok: false, mensaje: "Ticket no encontrado" });
 
     res.json({ ok: true, ticket: result.rows[0] });
-  } catch {
-    res.status(403).json({ ok: false, mensaje: "Token expirado o inválido" });
+  } catch (err) {
+    res.status(500).json({ ok: false, mensaje: "Error del servidor" });
   }
 });
 
@@ -581,13 +580,8 @@ app.post("/tickets", verificarToken, soloRol(ROLES.VENTAS), async (req, res) => 
       [id, req.usuario.nombre, "Ticket creado"]
     );
 
-    const planillaToken = jwt.sign(
-      { ticketId: id, tipo: "planilla-publica" },
-      process.env.JWT_SECRET,
-      { expiresIn: "30d" }
-    );
 
-    const planillaUrl = `${process.env.FRONTEND_URL}/planilla/${id}?token=${planillaToken}`;
+    const planillaUrl = `${process.env.FRONTEND_URL}/planilla/${id}`; // <-- URL limpia
 
     // Notificar por WhatsApp (background)
     llamarN8n("/notificar-whatsapp", {
@@ -671,18 +665,13 @@ app.post("/tickets/:id/cerrar", verificarToken, soloRol(ROLES.OPERACIONES), asyn
       [id, req.usuario.nombre, `Ticket cerrado como ${estado}`]
     );
 
-    const planillaToken = jwt.sign(
-      { ticketId: id, tipo: "planilla-publica" },
-      process.env.JWT_SECRET,
-      { expiresIn: "30d" }
-    );
 
     const ticket = result.rows[0];
     llamarN8n("/notificar-whatsapp", {
       evento: "ticket_cerrado", ticketId: id, estado,
       clienteNombre: ticket.cliente_nombre,
       tecnicoNombre: ticket.tecnico_nombre, total,solucion: ticket.solucion,
-      planillaUrl:   `${process.env.FRONTEND_URL}/planilla/${id}?token=${planillaToken}`,
+      planillaUrl: `${process.env.FRONTEND_URL}/planilla/${id}` // <-- URL limpia
     }).catch(() => {});
 
     res.json({ ok: true, fechaCierre, estado });
