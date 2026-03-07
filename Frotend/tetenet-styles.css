@@ -1152,10 +1152,15 @@ body {
 }
 
 .planilla-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px 20px;
   font-size: 0.82em;
+}
+
+/* Forzamos a que cada elemento ocupe el 50% menos el espacio del gap para hacer 2 columnas perfectas */
+.planilla-grid > div {
+  width: calc(50% - 10px);
 }
 
 .planilla-field {
