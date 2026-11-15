@@ -49,8 +49,13 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
 - **🔦 Linterna**: desde un puerto de OLT, un hilo o un splitter, ilumina todo el recorrido de la luz (hacia los clientes
   o hacia el nodo), con paradas en los **splitters** y en los **receptores**, y la potencia estimada en cada parada.
   *Ver recorrido en el mapa* resalta los cables iluminados.
-- **Trazado automático por postes**: eliges origen y destino y el cable se traza por los postes (ruta más corta con
-  un vano máximo configurable). **Si no hay postes en la ruta, no se traza.**
+- **Trazado automático por postes**: eliges el punto A y el punto B y el sistema busca la ruta más corta por los postes
+  registrados (vano máximo configurable).
+  - Si **no hay postes** entre A y B, avisa y no crea el cable: lo trazas **a mano** o agregas los postes.
+  - Si la ruta por postes es **mucho más larga que la distancia directa** (por defecto 1,4×, configurable), avisa de un
+    posible rodeo y te deja elegir: **trazar por postes igualmente**, **cancelar y agregar postes** (queda una guía
+    punteada A→B) o **trazar a mano**.
+  - Los postes se agregan siempre a mano o importándolos desde CSV.
 - **Importar postes desde CSV** (`nombre;lat;lng;…`, separador `,` o `;`, admite coma decimal; las demás columnas se guardan como datos).
 - **Exportar el mapa a KML / KMZ** (carpetas por tipo de elemento y cables, con sus datos).
 - **Viabilidad** (NAP con puertos libres en un radio) y **presupuesto óptico** (GPON B+/C+, XGS-PON).

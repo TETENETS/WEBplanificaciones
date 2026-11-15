@@ -110,6 +110,8 @@ export interface FlashlightResult {
 
 export interface AutoRoute {
   length_m: number;
+  straight_m: number;
+  detour_ratio: number;
   coordinates: [number, number][];
   poles: { id: number; name: string }[];
 }
@@ -126,7 +128,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || err.message || `HTTP ${res.status}`);
+    throw Object.assign(new Error(err.error || err.message || `HTTP ${res.status}`), { code: err.code as string | undefined });
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }

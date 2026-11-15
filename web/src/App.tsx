@@ -69,6 +69,10 @@ export default function App() {
   const [maxSpan, setMaxSpan] = useState(80);
   const [draft, setDraft] = useState<{ from: NetElement; points: [number, number][] } | null>(null);
   const [routePreview, setRoutePreview] = useState<{ from: NetElement; to: NetElement; route: AutoRoute } | null>(null);
+  const [noPoles, setNoPoles] = useState<{ from: NetElement; to: NetElement; message: string } | null>(null);
+  const [detourLimit, setDetourLimit] = useState(1.4);
+  // línea guía (recta A→B) que queda visible mientras se agregan postes
+  const [guide, setGuide] = useState<[[number, number], [number, number]] | null>(null);
   const [radius, setRadius] = useState(150);
   const [coverage, setCoverage] = useState<{ lat: number; lng: number; result: CoverageResult } | null>(null);
   const [editing, setEditing] = useState<NetElement | null>(null);
@@ -101,9 +105,11 @@ export default function App() {
     setMode(m);
     setDraft(null);
     setRoutePreview(null);
+    setNoPoles(null);
     setCoverage(null);
     setInfo(null);
     if (m.kind !== 'flashlight') setFlash(null);
+    setGuide(null);
   };
 
   const onMapClick = async (lat: number, lng: number) => {
@@ -162,9 +168,15 @@ export default function App() {
     if (el.id === draft.from.id) return;
     try {
       if (autoRoute) {
-        const route = await api.autoRoute(draft.from.id, el.id, maxSpan);
-        setRoutePreview({ from: draft.from, to: el, route });
+        const from = draft.from;
         setDraft(null);
+        try {
+          const route = await api.autoRoute(from.id, el.id, maxSpan);
+          setRoutePreview({ from, to: el, route });
+        } catch (e) {
+          if ((e as { code?: string }).code === 'NO_POLES') setNoPoles({ from, to: el, message: (e as Error).message });
+          else throw e;
+        }
         return;
       }
       await api.createCable({
@@ -201,6 +213,21 @@ export default function App() {
     } catch (err) {
       fail(err);
     }
+  };
+
+  // Pasa a trazado manual conservando el origen
+  const traceByHand = (from: NetElement) => {
+    setRoutePreview(null);
+    setNoPoles(null);
+    setAutoRoute(false);
+    setDraft({ from, points: [[from.lng, from.lat]] });
+  };
+
+  // Cancela y deja el modo "agregar poste" con una guía recta entre A y B
+  const addPolesInstead = (from: NetElement, to: NetElement) => {
+    switchMode({ kind: 'add', type: 'POSTE' });
+    setGuide([[from.lat, from.lng], [to.lat, to.lng]]);
+    setInfo(`Agrega los postes que faltan entre ${from.name} y ${to.name} (guía punteada) y vuelve a trazar el cable.`);
   };
 
   const importCsv = async (file: File) => {
@@ -285,7 +312,33 @@ export default function App() {
                   <input type="number" min={5} value={maxSpan} onChange={e => setMaxSpan(Number(e.target.value))} />
                 </label>
               )}
-              {routePreview ? (
+              {autoRoute && (
+                <label>Avisar si la ruta por postes es más larga que la directa (×)
+                  <input type="number" min={1} step={0.1} value={detourLimit} onChange={e => setDetourLimit(Number(e.target.value))} />
+                </label>
+              )}
+              {noPoles ? (
+                <div className="result warn">
+                  ⚠ {noPoles.message}
+                  <div className="row">
+                    <button className="primary" onClick={() => traceByHand(noPoles.from)}>Trazar a mano</button>
+                    <button onClick={() => addPolesInstead(noPoles.from, noPoles.to)}>Agregar postes</button>
+                    <button onClick={() => setNoPoles(null)}>Cancelar</button>
+                  </div>
+                </div>
+              ) : routePreview && routePreview.route.detour_ratio > detourLimit ? (
+                <div className="result warn">
+                  ⚠ La ruta por postes ({routePreview.from.name} → {routePreview.to.name}) mide
+                  <b> {Math.round(routePreview.route.length_m)} m</b>, {routePreview.route.detour_ratio}× la distancia directa
+                  ({Math.round(routePreview.route.straight_m)} m). Los postes registrados podrían estar rodeando una calle
+                  más directa.
+                  <div className="row">
+                    <button className="primary" onClick={confirmRoute}>Trazar por postes</button>
+                    <button onClick={() => addPolesInstead(routePreview.from, routePreview.to)}>Cancelar y agregar postes</button>
+                    <button onClick={() => traceByHand(routePreview.from)}>Trazar a mano</button>
+                  </div>
+                </div>
+              ) : routePreview ? (
                 <div className="result ok">
                   Ruta por <b>{routePreview.route.poles.length} postes</b>, {Math.round(routePreview.route.length_m)} m
                   ({routePreview.from.name} → {routePreview.to.name}).
@@ -300,7 +353,7 @@ export default function App() {
                     ? `Origen: ${draft.from.name}. Haz clic en el elemento de destino.`
                     : `Origen: ${draft.from.name}. Haz clic en el mapa para agregar vértices y en el elemento destino para terminar.`
                   : 'Haz clic en el elemento de origen.'}
-                  {autoRoute && ' El cable sólo se traza si hay postes a lo largo de la ruta.'}</p>
+                  {autoRoute && ' El sistema busca la ruta más corta por postes; si no hay postes, te pedirá trazarlo a mano.'}</p>
               )}
               {draft && <button onClick={() => setDraft(null)}>Cancelar trazado</button>}
             </>
@@ -407,6 +460,13 @@ export default function App() {
           ))}
 
           {draft && <Polyline positions={draft.points.map(([lng, lat]) => [lat, lng])} pathOptions={{ color: '#f97316', dashArray: '6 6' }} />}
+          {(guide || routePreview || noPoles) && (
+            <Polyline
+              positions={guide ?? (routePreview
+                ? [[routePreview.from.lat, routePreview.from.lng], [routePreview.to.lat, routePreview.to.lng]]
+                : [[noPoles!.from.lat, noPoles!.from.lng], [noPoles!.to.lat, noPoles!.to.lng]])}
+              pathOptions={{ color: '#64748b', weight: 2, dashArray: '2 6' }} interactive={false} />
+          )}
           {routePreview && (
             <Polyline positions={routePreview.route.coordinates.map(([lng, lat]) => [lat, lng])}
               pathOptions={{ color: '#f97316', weight: 4, dashArray: '8 6' }} />

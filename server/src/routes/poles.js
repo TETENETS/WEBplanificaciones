@@ -115,20 +115,27 @@ export default async function polesRoutes(app) {
         LIMIT 3000`,
       [from.lng, from.lat, to.lng, to.lat, [a, b], buffer]);
     if (!poles.length) {
-      return reply.code(422).send({ error: 'No hay postes en la zona de la ruta. Agrega o importa postes para usar el trazado automático.' });
+      return reply.code(422).send({
+        code: 'NO_POLES', straight_m: Math.round(straight),
+        error: `No hay postes entre ${from.name} y ${to.name}. El cable debe trazarse a mano.`,
+      });
     }
     // Si el origen/destino está sobre un poste (< 3 m), ese poste es el mismo punto
     const usable = poles.filter(p => haversine(p, from) > 3 && haversine(p, to) > 3);
     const route = routeThroughPoles(from, to, usable, maxSpan);
     if (!route) {
       return reply.code(422).send({
+        code: 'NO_POLES', straight_m: Math.round(straight),
         error: `No hay una ruta continua de postes (vano máximo ${maxSpan} m) entre ${from.name} y ${to.name}. ` +
-          'Agrega los postes que faltan o aumenta el vano máximo.',
+          'El cable debe trazarse a mano, o agrega los postes que faltan.',
       });
     }
     const polesUsed = route.nodes.slice(1, -1);
     return {
       length_m: route.length_m,
+      // distancia directa y cuánto más larga es la ruta por postes (para avisar de rodeos)
+      straight_m: Math.round(straight * 100) / 100,
+      detour_ratio: Math.round((route.length_m / straight) * 100) / 100,
       coordinates: route.nodes.map(p => [p.lng, p.lat]),
       poles: polesUsed.map(p => ({ id: p.id, name: p.name })),
     };
