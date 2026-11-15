@@ -1,7 +1,11 @@
 import { query } from '../db.js';
 
 export const ELEMENT_TYPES = ['NODO', 'CEO', 'CTO', 'POSTE', 'CAMARA', 'CLIENTE'];
-const COLS = `id, type, name, status, properties, ST_X(geom) AS lng, ST_Y(geom) AS lat, created_at, updated_at`;
+// diagram_items: contenido del diagrama lógico (equipos + splitters + conexiones). 0 = diagrama vacío.
+const COLS = `id, type, name, status, properties, ST_X(geom) AS lng, ST_Y(geom) AS lat, created_at, updated_at,
+  ((SELECT COUNT(*) FROM equipment q WHERE q.element_id = elements.id)
+   + (SELECT COUNT(*) FROM splitters s WHERE s.element_id = elements.id)
+   + (SELECT COUNT(*) FROM connections c WHERE c.element_id = elements.id))::int AS diagram_items`;
 
 const elementBody = {
   type: 'object',

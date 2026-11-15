@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, CircleMarker, Polyline, Circle, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
-import { api, AppConfig, AutoRoute, Cable, CoverageResult, ElementType, EquipmentKind, FlashlightResult, NetElement } from './api';
-import { HAS_DIAGRAM, STATUSES, TYPE_STYLE, elementColor, hasData } from './elementTypes';
+import { api, AppConfig, AutoRoute, Cable, CoverageResult, ElementType, FlashlightResult, NetElement } from './api';
+import { HAS_DIAGRAM, STATUSES, TYPE_STYLE, elementColor, isEmptyDiagram } from './elementTypes';
 import BoxEditor from './components/BoxEditor';
 import BudgetPanel from './components/BudgetPanel';
 import ElementForm, { ElementFormValue } from './components/ElementForm';
@@ -71,7 +71,6 @@ export default function App() {
   const [routePreview, setRoutePreview] = useState<{ from: NetElement; to: NetElement; route: AutoRoute } | null>(null);
   const [radius, setRadius] = useState(150);
   const [coverage, setCoverage] = useState<{ lat: number; lng: number; result: CoverageResult } | null>(null);
-  const [pendingAdd, setPendingAdd] = useState<{ type: ElementType; lat: number; lng: number; pole?: NetElement } | null>(null);
   const [editing, setEditing] = useState<NetElement | null>(null);
   const [flash, setFlash] = useState<FlashlightResult | null>(null);
   const [showPoles, setShowPoles] = useState(true);
@@ -118,7 +117,7 @@ export default function App() {
             .filter(x => x.d <= SNAP_TO_POLE_M)
             .sort((a, b) => a.d - b.d)[0]?.p;
         }
-        setPendingAdd({ type: mode.type, lat: pole?.lat ?? lat, lng: pole?.lng ?? lng, pole });
+        await createElementAt(mode.type, pole?.lat ?? lat, pole?.lng ?? lng, pole);
       } else if (mode.kind === 'cable' && draft && !autoRoute) {
         setDraft({ ...draft, points: [...draft.points, [lng, lat]] });
       } else if (mode.kind === 'coverage') {
@@ -129,28 +128,23 @@ export default function App() {
     }
   };
 
-  const createPending = async (v: ElementFormValue) => {
-    if (!pendingAdd) return;
-    try {
-      const properties = { ...v.properties };
-      if (pendingAdd.pole && Object.values(properties).some(x => x)) properties.poste = pendingAdd.pole.name;
-      const el = await api.createElement({ type: pendingAdd.type, name: v.name, status: v.status, properties, lat: pendingAdd.lat, lng: pendingAdd.lng });
-      // el cliente nace con su equipo receptor (ONU por defecto) para que la linterna termine en él
-      if (pendingAdd.type === 'CLIENTE') {
-        const kind = (['ONU', 'ROUTER', 'TRANSCEPTOR'].includes(properties.equipo) ? properties.equipo : 'ONU') as EquipmentKind;
-        await api.addEquipment(el.id, { kind, name: `${kind} ${v.name}`, x: 480, y: 40, properties: properties.serial_onu ? { serial: properties.serial_onu } : {} });
-      }
-      setPendingAdd(null);
-      await reload();
-    } catch (err) {
-      fail(err);
-    }
+  // Crea el elemento y, si tiene diagrama lógico, lo abre de inmediato para rellenarlo.
+  const createElementAt = async (type: ElementType, lat: number, lng: number, pole?: NetElement) => {
+    const n = elements.filter(e => e.type === type).length + 1;
+    const el = await api.createElement({
+      type, lat, lng, status: 'proyecto',
+      name: `${TYPE_STYLE[type].prefix}-${String(n).padStart(2, '0')}`,
+      properties: pole ? { poste: pole.name } : {},
+    });
+    await reload();
+    if (HAS_DIAGRAM.includes(type)) setOpenBox({ ...el, diagram_items: 0 });
   };
 
   const saveEdit = async (v: ElementFormValue) => {
     if (!editing) return;
     try {
-      await api.updateElement(editing.id, { name: v.name, status: v.status, properties: v.properties });
+      const upd = await api.updateElement(editing.id, { name: v.name, status: v.status, properties: v.properties });
+      if (openBox?.id === upd.id) setOpenBox({ ...openBox, ...upd });
       setEditing(null);
       await reload();
     } catch (err) {
@@ -268,10 +262,10 @@ export default function App() {
         <section className="mode-panel">
           {mode.kind === 'select' && (
             <p>Clic en un elemento para ver sus datos. <b>Doble clic</b> abre su diagrama.
-              Los elementos en <span className="grey-chip">gris</span> no tienen datos cargados.</p>
+              Los elementos en <span className="grey-chip">gris</span> tienen el diagrama lógico vacío.</p>
           )}
           {mode.kind === 'add' && (
-            <p>Haz clic en el mapa para ubicar el elemento. Se abrirá un formulario para cargar sus datos.
+            <p>Haz clic en el mapa para ubicar el elemento.{HAS_DIAGRAM.includes(mode.type) && ' Se abrirá su diagrama lógico para rellenarlo; mientras esté vacío se verá en gris.'}
               {mode.type !== 'POSTE' && ` Si haces clic a menos de ${SNAP_TO_POLE_M} m de un poste, se ubica sobre el poste.`}</p>
           )}
           {mode.kind === 'cable' && (
@@ -432,11 +426,11 @@ export default function App() {
                   dblclick: e => { e.originalEvent.stopPropagation(); e.target.closePopup(); openDiagram(el); },
                 }}
                 bubblingMouseEvents={false}>
-                <Tooltip direction="top">{el.name}{!hasData(el) && ' (sin datos)'}</Tooltip>
+                <Tooltip direction="top">{el.name}{isEmptyDiagram(el) && ' (diagrama vacío)'}</Tooltip>
                 {mode.kind === 'select' && (
                   <Popup>
                     <b>{el.name}</b><br />{TYPE_STYLE[el.type]?.label} · {statusLabel(el.status)}
-                    {!hasData(el) && <><br /><i>Sin datos cargados</i></>}
+                    {isEmptyDiagram(el) && <><br /><i>Diagrama lógico vacío</i></>}
                     <table className="props">
                       <tbody>
                         {Object.entries(el.properties || {}).filter(([, v]) => v).map(([k, v]) => (
@@ -479,23 +473,11 @@ export default function App() {
         </MapContainer>
       </main>
 
-      {openBox && <BoxEditor element={openBox} onClose={() => { setOpenBox(null); reload(); }} onShowOnMap={showFlashOnMap} />}
-
-      {pendingAdd && (
-        <ElementForm
-          creating
-          type={pendingAdd.type}
-          title={`Nuevo: ${TYPE_STYLE[pendingAdd.type].label}`}
-          note={pendingAdd.pole ? `Se ubicará sobre el poste ${pendingAdd.pole.name}.` : undefined}
-          initial={{
-            name: `${TYPE_STYLE[pendingAdd.type].prefix}-${String(elements.filter(e => e.type === pendingAdd.type).length + 1).padStart(2, '0')}`,
-            status: 'proyecto',
-            properties: {},
-          }}
-          onSave={createPending}
-          onCancel={() => setPendingAdd(null)}
-        />
+      {openBox && (
+        <BoxEditor element={openBox} onClose={() => { setOpenBox(null); reload(); }} onShowOnMap={showFlashOnMap}
+          onEditData={() => setEditing(elements.find(e => e.id === openBox.id) ?? openBox)} />
       )}
+
       {editing && (
         <ElementForm
           type={editing.type}

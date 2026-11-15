@@ -36,9 +36,10 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
 ## Funciones
 
 - **Mapa** con capas Calles / Satélite / Satélite Google y nombres de calles superpuestos.
-- **Elementos**: nodo principal, CEO, NAP (CTO), poste, cámara, cliente. Al agregar uno se abre un **formulario
-  con sus datos** (IP de la OLT, puertos, splitter, serial ONU…). Si se guarda **sin datos aparece en gris**.
-  Los elementos en proyecto o no implantados tienen el borde punteado. Las cajas se ubican sobre el poste más cercano (a menos de 15 m).
+- **Elementos**: nodo principal, CEO, NAP (CTO), poste, cámara, cliente. Al agregar un nodo, caja o cliente se abre
+  **directamente su diagrama lógico** para rellenarlo. Mientras el diagrama esté **vacío** (sin equipos, splitters ni
+  conexiones) el elemento se ve **en gris**. Los datos de ficha (IP de la OLT, dirección, serial ONU…) se editan con
+  *Datos del elemento*. Borde punteado = en proyecto / no implantado. Las cajas se ubican sobre el poste más cercano (a menos de 15 m).
 - **Doble clic** en un elemento abre su **diagrama**.
 - **Nodo principal**: dentro del diagrama se agregan **OLT** (slots × puertos PON, potencia en dBm), **ODF**
   (lado A / lado B) y **splitters**; desde ahí sale el cable troncal.

@@ -9,7 +9,7 @@ export const TYPE_STYLE: Record<ElementType, { color: string; label: string; rad
   CLIENTE: { color: '#c2410c', label: 'Cliente', radius: 5, prefix: 'CLI' },
 };
 
-/** Color para elementos sin datos cargados */
+/** Color para elementos con el diagrama lógico vacío */
 export const NO_DATA_COLOR = '#a8a29e';
 
 /** Elementos que tienen diagrama interno */
@@ -81,11 +81,11 @@ export const FIELDS: Record<ElementType, Field[]> = {
   ],
 };
 
-/** Un elemento "tiene datos" si al menos uno de sus campos está completo */
-export function hasData(el: Pick<NetElement, 'properties'>): boolean {
-  return Object.values(el.properties || {}).some(v => v !== null && v !== undefined && String(v).trim() !== '');
+/** Elementos con diagrama lógico vacío (sin equipos, splitters ni conexiones) */
+export function isEmptyDiagram(el: Pick<NetElement, 'type' | 'diagram_items'>): boolean {
+  return HAS_DIAGRAM.includes(el.type) && !el.diagram_items;
 }
 
 export function elementColor(el: NetElement): string {
-  return hasData(el) ? TYPE_STYLE[el.type]?.color ?? '#334155' : NO_DATA_COLOR;
+  return isEmptyDiagram(el) ? NO_DATA_COLOR : TYPE_STYLE[el.type]?.color ?? '#334155';
 }

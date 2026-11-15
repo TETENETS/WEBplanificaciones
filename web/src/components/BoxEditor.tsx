@@ -43,10 +43,11 @@ function equipmentHeight(e: Equipment) {
   return 30 + n * ROW;
 }
 
-export default function BoxEditor({ element, onClose, onShowOnMap }: {
+export default function BoxEditor({ element, onClose, onShowOnMap, onEditData }: {
   element: NetElement;
   onClose: () => void;
   onShowOnMap: (r: FlashlightResult) => void;
+  onEditData: () => void;
 }) {
   const [d, setD] = useState<Diagram | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -277,7 +278,10 @@ export default function BoxEditor({ element, onClose, onShowOnMap }: {
       <div className="modal" onClick={e => e.stopPropagation()}>
         <header>
           <h3><span className="dot" style={{ background: TYPE_STYLE[element.type]?.color }} /> {TYPE_STYLE[element.type]?.label} · {element.name}</h3>
-          <button onClick={onClose}>Cerrar</button>
+          <div className="row" style={{ marginTop: 0 }}>
+            <button onClick={onEditData}>Datos del elemento</button>
+            <button onClick={onClose}>Guardar y cerrar</button>
+          </div>
         </header>
         <div className="toolbar-row">
           <div className="tool-group">

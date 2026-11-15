@@ -7,6 +7,8 @@ export interface NetElement {
   name: string;
   status: ElementStatus | string;
   properties: Record<string, string>;
+  /** equipos + splitters + conexiones del diagrama lógico; 0 = vacío */
+  diagram_items: number;
   lat: number;
   lng: number;
 }
