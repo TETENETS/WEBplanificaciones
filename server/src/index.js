@@ -13,6 +13,8 @@ import cablesRoutes from './routes/cables.js';
 import diagramRoutes from './routes/diagram.js';
 import analysisRoutes from './routes/analysis.js';
 import clientsRoutes from './routes/clients.js';
+import polesRoutes from './routes/poles.js';
+import exportRoutes from './routes/export.js';
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL || 'info' } });
 
@@ -34,6 +36,8 @@ await app.register(async (api) => {
   await api.register(diagramRoutes);
   await api.register(analysisRoutes);
   await api.register(clientsRoutes);
+  await api.register(polesRoutes);
+  await api.register(exportRoutes);
 }, { prefix: '/api/v1' });
 
 // Frontend compilado (SPA)
