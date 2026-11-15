@@ -53,6 +53,8 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
 - **Doble clic** en un elemento abre su **diagrama**.
 - **Nodo principal**: dentro del diagrama se agregan **OLT** (slots × puertos PON, potencia en dBm), **ODF**
   (lado A / lado B) y **splitters**; desde ahí sale el cable troncal.
+- **Código de colores TIA/EIA-598** (azul, anaranjado, verde, café, gris, blanco, rojo, negro, amarillo, violeta, rosa, aqua)
+  en hilos, tubos, patas de splitter y puertos PON de la OLT; del 13 al 24 se repite con franja negra.
 - **Diagrama de cajas**: hilos por color (TIA-598), splitters 1:2…1:32 (blancos = permiten clientes, grises = de red),
   fusiones y conectores con clic-a-clic, equipos receptores (ONU, router, transceptor). Los hilos que **reciben señal**
   de una OLT se ven con el punto verde y su potencia estimada.
