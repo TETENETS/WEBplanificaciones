@@ -33,6 +33,7 @@ export default async function cablesRoutes(app) {
           from_element_id: { type: 'integer' },
           to_element_id: { type: 'integer' },
           attenuation_db_km: { type: 'number' },
+          properties: { type: 'object' },
           coordinates: { type: 'array', items: { type: 'array', items: { type: 'number' } } },
         },
       },
@@ -43,12 +44,12 @@ export default async function cablesRoutes(app) {
     const cable = await tx(async (c) => {
       const params = [
         b.name, b.fiber_count, perTube, b.attenuation_db_km ?? null,
-        b.from_element_id ?? null, b.to_element_id ?? null,
+        b.from_element_id ?? null, b.to_element_id ?? null, b.properties || {},
       ];
       let geomSql;
       if (b.coordinates?.length >= 2) {
         params.push(JSON.stringify({ type: 'LineString', coordinates: b.coordinates }));
-        geomSql = 'ST_SetSRID(ST_GeomFromGeoJSON($7), 4326)';
+        geomSql = 'ST_SetSRID(ST_GeomFromGeoJSON($8), 4326)';
       } else if (b.from_element_id && b.to_element_id) {
         geomSql = '(SELECT ST_MakeLine(a.geom, z.geom) FROM elements a, elements z WHERE a.id=$5 AND z.id=$6)';
       } else {
@@ -57,8 +58,8 @@ export default async function cablesRoutes(app) {
         throw e;
       }
       const { rows } = await c.query(
-        `INSERT INTO cables (name, fiber_count, fibers_per_tube, attenuation_db_km, from_element_id, to_element_id, geom)
-         VALUES ($1, $2, $3, COALESCE($4, 0.35), $5, $6, ${geomSql}) RETURNING id`,
+        `INSERT INTO cables (name, fiber_count, fibers_per_tube, attenuation_db_km, from_element_id, to_element_id, properties, geom)
+         VALUES ($1, $2, $3, COALESCE($4, 0.35), $5, $6, $7, ${geomSql}) RETURNING id`,
         params,
       );
       const id = rows[0].id;

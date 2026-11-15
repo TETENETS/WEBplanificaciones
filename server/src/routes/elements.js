@@ -1,6 +1,6 @@
 import { query } from '../db.js';
 
-export const ELEMENT_TYPES = ['POP', 'OLT', 'CEO', 'CTO', 'POSTE', 'CAMARA'];
+export const ELEMENT_TYPES = ['NODO', 'CEO', 'CTO', 'POSTE', 'CAMARA', 'CLIENTE'];
 const COLS = `id, type, name, status, properties, ST_X(geom) AS lng, ST_Y(geom) AS lat, created_at, updated_at`;
 
 const elementBody = {
