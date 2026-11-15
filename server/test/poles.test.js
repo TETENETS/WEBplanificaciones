@@ -28,3 +28,29 @@ test('CSV sin cabecera: nombre, lat, lng', () => {
   const r = parseCsv('P1,-34.6,-58.3\nP2,-34.7,-58.4');
   assert.equal(r.rows.length, 2);
 });
+
+import { parseCoordPair, parseCoordValue } from '../src/coords.js';
+
+test('coordenadas: enlaces de Google Maps', () => {
+  assert.deepEqual(parseCoordPair('https://www.google.com/maps/@10.4806,-66.9036,17z'), { lat: 10.4806, lng: -66.9036 });
+  assert.deepEqual(parseCoordPair('https://maps.google.com/?q=10.5,-66.91'), { lat: 10.5, lng: -66.91 });
+  assert.deepEqual(
+    parseCoordPair('https://www.google.com/maps/place/Plaza/@10.49,-66.88,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d10.4912!4d-66.8811'),
+    { lat: 10.4912, lng: -66.8811 });
+  assert.deepEqual(parseCoordPair('10.4806, -66.9036'), { lat: 10.4806, lng: -66.9036 });
+});
+
+test('coordenadas: grados, minutos y segundos', () => {
+  assert.equal(parseCoordValue(`10°28'50.2"N`), 10.4806111);
+  assert.equal(parseCoordValue(`66°54'13.0"W`), -66.9036111);
+  assert.equal(parseCoordValue('66 54 13 O'), -66.9036111);
+  assert.equal(parseCoordValue('-34,6'), -34.6);
+  assert.deepEqual(parseCoordPair(`10°28'50.2"N 66°54'13.0"W`), { lat: 10.4806111, lng: -66.9036111 });
+});
+
+test('CSV con columna de enlace de Google Maps y DMS', () => {
+  const r = parseCsv('nombre;ubicacion\nC1;https://www.google.com/maps/@10.48,-66.90,17z\nC2;10°28\'50.2"N 66°54\'13.0"W\nC3;nada', { namePrefix: 'CLI' });
+  assert.equal(r.rows.length, 2);
+  assert.equal(r.rows[1].lng, -66.9036111);
+  assert.equal(r.errors.length, 1);
+});

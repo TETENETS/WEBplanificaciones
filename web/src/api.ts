@@ -160,8 +160,8 @@ export const api = {
   deleteCable: (id: number) => req<void>('DELETE', `/cables/${id}`),
   autoRoute: (from_element_id: number, to_element_id: number, max_span_m: number) =>
     req<AutoRoute>('POST', '/routes/auto', { from_element_id, to_element_id, max_span_m }),
-  importPoles: (csv: string) =>
-    req<{ inserted: number; skipped: number; errors: { line: number; error: string }[] }>('POST', '/poles/import', { csv, skipDuplicates: true }),
+  importElements: (csv: string, type: 'POSTE' | 'CLIENTE' | 'CTO') =>
+    req<{ inserted: number; skipped: number; errors: { line: number; error: string }[] }>('POST', '/elements/import', { csv, type, skipDuplicates: true }),
 
   diagram: (id: number) => req<Diagram>('GET', `/elements/${id}/diagram`),
   addSplitter: (elementId: number, s: { ratio: number; level: number; allows_client: boolean; x: number; y: number }) =>

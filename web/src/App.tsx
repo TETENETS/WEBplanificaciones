@@ -79,6 +79,7 @@ export default function App() {
   const [flash, setFlash] = useState<FlashlightResult | null>(null);
   const [showPoles, setShowPoles] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [importType, setImportType] = useState<'POSTE' | 'CLIENTE' | 'CTO'>('POSTE');
 
   const reload = useCallback(async () => {
     try {
@@ -235,8 +236,8 @@ export default function App() {
 
   const importCsv = async (file: File) => {
     try {
-      const r = await api.importPoles(await file.text());
-      setInfo(`Postes importados: ${r.inserted}. Omitidos (ya existían): ${r.skipped}.` +
+      const r = await api.importElements(await file.text(), importType);
+      setInfo(`${TYPE_STYLE[importType].label}: ${r.inserted} importados. Omitidos (ya existían): ${r.skipped}.` +
         (r.errors.length ? ` Filas con error: ${r.errors.map(e => e.line).join(', ')}.` : ''));
       await reload();
     } catch (err) {
@@ -276,7 +277,7 @@ export default function App() {
           <button className={mode.kind === 'flashlight' ? 'active' : ''} onClick={() => switchMode({ kind: 'flashlight' })}>🔦 Linterna</button>
           <button className={mode.kind === 'coverage' ? 'active' : ''} onClick={() => switchMode({ kind: 'coverage' })}>Viabilidad</button>
           <button className={mode.kind === 'budget' ? 'active' : ''} onClick={() => switchMode({ kind: 'budget' })}>Presupuesto óptico</button>
-          <button className={mode.kind === 'poles' ? 'active' : ''} onClick={() => switchMode({ kind: 'poles' })}>Postes e importación</button>
+          <button className={mode.kind === 'poles' ? 'active' : ''} onClick={() => switchMode({ kind: 'poles' })}>Postes e importación CSV</button>
         </section>
 
         <section>
@@ -406,10 +407,18 @@ export default function App() {
           {mode.kind === 'budget' && <BudgetPanel />}
           {mode.kind === 'poles' && (
             <>
-              <p>Importa una lista de postes en CSV. Columnas: <code>nombre</code>, <code>lat</code>, <code>lng</code>
-                {' '}(también <code>codigo</code>, <code>latitud</code>, <code>longitud</code>). Separador <code>,</code> o <code>;</code>.
-                Las demás columnas se guardan como datos del poste.</p>
-              <pre className="sample">nombre;lat;lng;material{'\n'}P-001;-34.6034;-58.3810;concreto</pre>
+              <label>Importar desde CSV
+                <select value={importType} onChange={e => setImportType(e.target.value as typeof importType)}>
+                  <option value="POSTE">Postes</option>
+                  <option value="CLIENTE">Clientes</option>
+                  <option value="CTO">Cajas NAP</option>
+                </select>
+              </label>
+              <p>Columnas: <code>nombre</code> y <code>lat</code> / <code>lng</code>, o una columna <code>ubicacion</code>
+                (también <code>coordenadas</code>, <code>link</code>). Las coordenadas pueden ser decimales, un
+                <b> enlace de Google Maps</b> o <b>grados/minutos/segundos</b>. Separador <code>;</code> (o <code>,</code> con
+                los enlaces entre comillas). Las demás columnas se guardan como datos del elemento.</p>
+              <pre className="sample">nombre;ubicacion;material{'\n'}P-001;10.4806, -66.9036;concreto{'\n'}P-002;https://maps.google.com/?q=10.481,-66.903;madera{'\n'}P-003;10°28'52"N 66°54'10"W;concreto</pre>
               <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain" onChange={e => e.target.files?.[0] && importCsv(e.target.files[0])} />
               <label className="check">
                 <input type="checkbox" checked={showPoles} onChange={e => setShowPoles(e.target.checked)} /> Mostrar postes ({poles.length})
@@ -434,7 +443,7 @@ export default function App() {
       <main className={`map mode-${mode.kind}`}>
         <MapContainer center={config.mapCenter ?? DEFAULT_CENTER} zoom={15} doubleClickZoom={false}
           style={{ height: '100%', width: '100%' }}>
-          <BaseLayers googleKey={config.googleMapsKey} />
+          <BaseLayers googleKey={config.googleMapsKey} onFallback={setInfo} />
           <FitToData elements={elements} />
           <ClickHandler onClick={onMapClick} />
 

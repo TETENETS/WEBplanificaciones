@@ -64,29 +64,18 @@ export async function streetRoute(from, to) {
 }
 
 export default async function polesRoutes(app) {
-  // Importa postes desde CSV. Columnas reconocidas: nombre/codigo, lat/latitud, lng/lon/longitud;
-  // el resto de columnas se guardan como propiedades del poste.
-  app.post('/poles/import', {
-    bodyLimit: 10 * 1024 * 1024,
-    schema: {
-      body: {
-        type: 'object',
-        required: ['csv'],
-        properties: {
-          csv: { type: 'string' },
-          status: { type: 'string' },
-          skipDuplicates: { type: 'boolean', default: true },
-        },
-      },
-    },
-  }, async (req, reply) => {
+  // Importa postes, clientes o NAPs desde CSV. Coordenadas en decimal, grados/minutos/segundos
+  // o enlace de Google Maps. El resto de columnas se guardan como propiedades del elemento.
+  const IMPORT_TYPES = { POSTE: 'P', CLIENTE: 'CLI', CTO: 'NAP' };
+  const importHandler = async (req, reply) => {
+    const type = req.body.type || 'POSTE';
     let parsed;
     try {
-      parsed = parseCsv(req.body.csv);
+      parsed = parseCsv(req.body.csv, { namePrefix: IMPORT_TYPES[type] });
     } catch (e) {
       return reply.code(400).send({ error: e.message });
     }
-    const { rows: existing } = await query(`SELECT name FROM elements WHERE type='POSTE'`);
+    const { rows: existing } = await query('SELECT name FROM elements WHERE type=$1', [type]);
     const names = new Set(existing.map(r => r.name.toLowerCase()));
     let inserted = 0;
     let skipped = 0;
@@ -96,13 +85,31 @@ export default async function polesRoutes(app) {
         names.add(p.name.toLowerCase());
         await c.query(
           `INSERT INTO elements (type, name, status, properties, geom)
-           VALUES ('POSTE', $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326))`,
-          [p.name, req.body.status || 'implantado', p.properties, p.lng, p.lat]);
+           VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326))`,
+          [type, p.name, req.body.status || (type === 'POSTE' ? 'implantado' : 'proyecto'), p.properties, p.lng, p.lat]);
         inserted++;
       }
     });
     return { inserted, skipped, errors: parsed.errors, columns: parsed.columns };
-  });
+  };
+  const importSchema = {
+    bodyLimit: 10 * 1024 * 1024,
+    schema: {
+      body: {
+        type: 'object',
+        required: ['csv'],
+        properties: {
+          csv: { type: 'string' },
+          type: { type: 'string', enum: Object.keys(IMPORT_TYPES), default: 'POSTE' },
+          status: { type: 'string' },
+          skipDuplicates: { type: 'boolean', default: true },
+        },
+      },
+    },
+  };
+  app.post('/elements/import', importSchema, importHandler);
+  // Alias anterior, sólo postes
+  app.post('/poles/import', importSchema, (req, reply) => importHandler({ ...req, body: { ...req.body, type: 'POSTE' } }, reply));
 
   // Trazado automático por postes entre dos elementos
   app.post('/routes/auto', {

@@ -26,9 +26,11 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
    Luego, en la app principal: `OSRM_URL=http://NOMBRE_DEL_SERVICIO_OSRM:5000`.
    Para otra región cambia el *build arg* `OSM_PBF_URL`.
 
-> **Satélite**: la capa *Satélite* (Esri World Imagery) funciona sin clave. Para *Satélite Google* activa la
-> **Map Tiles API** en Google Cloud, crea una API key restringida por *HTTP referrer* a tu dominio y ponla en
-> `GOOGLE_MAPS_API_KEY`.
+> **Mapa base**: por defecto se usa **"Satélite con calles" de Google** (imágenes híbridas) pedidas directamente a
+> `mt0-mt3.google.com/vt` (sin API key ni costo). Esas teselas no forman parte de la API oficial y Google puede
+> bloquearlas; si fallan, el mapa cambia solo a **Esri World Imagery**. El selector de capas (arriba a la derecha)
+> ofrece Solo satélite, Mapa y Terreno de Google, Satélite Esri y Calles (OpenStreetMap), y recuerda la última elegida.
+> Opcional: con `GOOGLE_MAPS_API_KEY` (Map Tiles API) se agrega la capa oficial de Google.
 
 | Variable | Por defecto | Uso |
 |---|---|---|
@@ -43,7 +45,7 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
 
 ## Funciones
 
-- **Mapa** con capas Calles / Satélite / Satélite Google y nombres de calles superpuestos.
+- **Mapa** con Google satélite con calles por defecto (respaldo automático a Esri) y selector de capas.
 - **Elementos**: nodo principal, CEO, NAP (CTO), poste, cámara, cliente. Al agregar un nodo, caja o cliente se abre
   **directamente su diagrama lógico** para rellenarlo. Mientras el diagrama esté **vacío** (sin equipos, splitters ni
   conexiones) el elemento se ve **en gris**. Los datos de ficha (IP de la OLT, dirección, serial ONU…) se editan con
@@ -64,7 +66,7 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
     la línea recta) — por defecto 1,4×, configurable — avisa de un posible rodeo y te deja elegir: **trazar por postes igualmente**, **cancelar y agregar postes** (queda la ruta por calles
     como guía punteada) o **trazar a mano**.
   - Los postes se agregan siempre a mano o importándolos desde CSV.
-- **Importar postes desde CSV** (`nombre;lat;lng;…`, separador `,` o `;`, admite coma decimal; las demás columnas se guardan como datos).
+- **Importar postes, clientes o NAPs desde CSV**: coordenadas en columnas `lat`/`lng` o en una columna `ubicacion`; acepta **decimales**, **enlaces de Google Maps** y **grados/minutos/segundos** (`10°28'50"N 66°54'13"W`).
 - **Exportar el mapa a KML / KMZ** (carpetas por tipo de elemento y cables, con sus datos).
 - **Viabilidad** (NAP con puertos libres en un radio) y **presupuesto óptico** (GPON B+/C+, XGS-PON).
 
