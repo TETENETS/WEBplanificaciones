@@ -1,12 +1,5 @@
-# Dependencias
 node_modules/
-
-# Variables de entorno (Seguridad)
-.env
-.env.local
-
-# Logs y archivos temporales
-npm-debug.log*
 dist/
-build/
-.DS_Store
+*.tsbuildinfo
+.env
+server/public/
