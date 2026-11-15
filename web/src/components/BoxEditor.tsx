@@ -3,6 +3,19 @@ import {
   api, Connection, Diagram, EndKind, Equipment, EquipmentKind, Fiber, FlashlightResult, NetElement, Splitter,
 } from '../api';
 import { TYPE_STYLE } from '../elementTypes';
+import { fiberTia, TiaColor, tiaColor } from '../tia598';
+
+/** Muestra de color TIA-598 (con franja si corresponde) */
+function Swatch({ x, y, c, w = 10, h = 10 }: { x: number; y: number; c: TiaColor; w?: number; h?: number }) {
+  return (
+    <g className="swatch" pointerEvents="none">
+      <rect x={x} y={y} width={w} height={h} style={{ fill: c.hex, stroke: '#0006', strokeWidth: 0.8 }} />
+      {c.stripe && <rect x={x} y={y + h / 2 - 1.5} width={w} height={3} style={{ fill: c.stripe, stroke: 'none' }} />}
+    </g>
+  );
+}
+/** Color del puerto PON (posición dentro de su slot) */
+const ponColor = (e: Equipment, port: number) => tiaColor(((port - 1) % e.ports) + 1);
 
 /**
  * Editor esquemático de un elemento (nodo principal, CEO, NAP, cliente):
@@ -244,10 +257,25 @@ export default function BoxEditor({ element, onClose, onShowOnMap, onEditData }:
     } catch (e) { setErr((e as Error).message); }
   };
 
-  const connColor = (c: Connection) => {
-    const f = c.a_kind === 'fiber' ? fiberById.get(c.a_id) : c.b_kind === 'fiber' ? fiberById.get(c.b_id) : undefined;
-    return f?.color ?? '#475569';
+  /** Color TIA-598 de un extremo (hilo, pata de splitter o puerto PON), si lo tiene */
+  const endColor = (kind: EndKind, id: number, port: number): TiaColor | null => {
+    if (kind === 'fiber') {
+      const f = fiberById.get(id);
+      const cab = f && d?.cables.find(c => c.id === f.cable_id);
+      return f ? fiberTia(f.number, cab?.fibers_per_tube ?? 12) : null;
+    }
+    if (kind === 'splitter_out') return tiaColor(port);
+    if (kind === 'equipment') {
+      const e = d?.equipment.find(q => q.id === id);
+      if (e?.kind === 'OLT') return ponColor(e, port);
+    }
+    return null;
   };
+  const connColor = (c: Connection) =>
+    (c.a_kind === 'fiber' ? endColor(c.a_kind, c.a_id, c.a_port) : null)
+    ?? (c.b_kind === 'fiber' ? endColor(c.b_kind, c.b_id, c.b_port) : null)
+    ?? endColor(c.a_kind, c.a_id, c.a_port) ?? endColor(c.b_kind, c.b_id, c.b_port)
+    ?? { hex: '#475569', stripe: null, name: '', label: '' };
 
   const renderEnd = (e: End, label?: string) => {
     const k = endKey(e);
@@ -349,13 +377,19 @@ export default function BoxEditor({ element, onClose, onShowOnMap, onEditData }:
                     const x1 = x + 8;
                     const x2 = x + CABLE_W;
                     const lit = flash?.fibers.includes(f.id);
+                    const fc = fiberTia(f.number, cable.fibers_per_tube ?? 12);
+                    const tc = tiaColor(f.tube);
+                    const lx1 = side === 'in' ? x1 + 10 : x;
+                    const lx2 = side === 'in' ? x2 : x2 - 18;
                     return (
                       <g key={f.id}>
-                        <rect x={side === 'in' ? x1 : x2 - 16} y={fy - 5} width={8} height={10} fill={f.tube_color} stroke="#0003" />
-                        {lit && <line x1={side === 'in' ? x1 + 10 : x} y1={fy} x2={side === 'in' ? x2 : x2 - 18} y2={fy} className="glow" />}
-                        <line x1={side === 'in' ? x1 + 10 : x} y1={fy} x2={side === 'in' ? x2 : x2 - 18} y2={fy}
-                          stroke={f.color} strokeWidth={4} className="fiber-line" />
-                        <text x={side === 'in' ? x1 + 16 : x + 16} y={fy - 4} className="fiber-label">T{f.tube} · F{f.number}</text>
+                        <Swatch x={side === 'in' ? x1 : x2 - 16} y={fy - 5} w={8} c={tc} />
+                        {lit && <line x1={lx1} y1={fy} x2={lx2} y2={fy} className="glow" />}
+                        <line x1={lx1} y1={fy} x2={lx2} y2={fy} stroke="#0005" strokeWidth={5.5} />
+                        <line x1={lx1} y1={fy} x2={lx2} y2={fy} stroke={fc.hex} strokeWidth={4} className="fiber-line" />
+                        {fc.stripe && <line x1={lx1} y1={fy} x2={lx2} y2={fy} stroke={fc.stripe} strokeWidth={1.6} strokeDasharray="6 5" />}
+                        <text x={side === 'in' ? x1 + 16 : x + 16} y={fy - 4} className="fiber-label">T{f.tube} · F{f.number} · {fc.name}</text>
+                        <title>{`Tubo ${f.tube} (${tc.label}) · Hilo ${f.number} (${fc.label})`}</title>
                       </g>
                     );
                   })}
@@ -374,7 +408,12 @@ export default function BoxEditor({ element, onClose, onShowOnMap, onEditData }:
                   {!isReceiver(e.kind) && Array.from({ length: e.kind === 'OLT' ? e.slots * e.ports : e.ports }, (_, i) => {
                     const py = e.y + 30 + i * ROW + ROW / 2;
                     const label = e.kind === 'OLT' ? `S${Math.floor(i / e.ports) + 1} · PON ${(i % e.ports) + 1}` : `${i + 1}`;
-                    return <text key={i} x={e.x + EQ_W / 2} y={py + 3} textAnchor="middle" className="port-label">{label}</text>;
+                    return (
+                      <g key={i}>
+                        {e.kind === 'OLT' && <Swatch x={e.x + EQ_W - 20} y={py - 5} c={ponColor(e, i + 1)} />}
+                        <text x={e.x + EQ_W / 2} y={py + 3} textAnchor="middle" className="port-label">{label}</text>
+                      </g>
+                    );
                   })}
                 </g>
               ))}
@@ -394,7 +433,8 @@ export default function BoxEditor({ element, onClose, onShowOnMap, onEditData }:
                     {litConns.has(c.id) && <path d={path} className="glow" />}
                     <path d={path} stroke={isSel ? '#f97316' : '#111'} strokeWidth={isSel ? 6 : 5} fill="none"
                       strokeDasharray={c.kind === 'conector' ? '7 3' : undefined} />
-                    <path d={path} stroke={connColor(c)} strokeWidth={3} fill="none" />
+                    <path d={path} stroke={connColor(c).hex} strokeWidth={3} fill="none" />
+                    {connColor(c).stripe && <path d={path} stroke={connColor(c).stripe!} strokeWidth={1.2} strokeDasharray="6 5" fill="none" />}
                   </g>
                 );
               })}
@@ -408,23 +448,32 @@ export default function BoxEditor({ element, onClose, onShowOnMap, onEditData }:
                     onClick={ev => { ev.stopPropagation(); setSel({ type: 'spl', id: s.id }); }}
                   />
                   <text x={s.x + SPL_W / 2} y={s.y - 6} textAnchor="middle" className="spl-label">{s.name} (N{s.level})</text>
-                  {Array.from({ length: s.ratio }, (_, i) => (
-                    <text key={i} x={s.x + SPL_W + 8} y={s.y + 6 + i * SPL_ROW + SPL_ROW / 2 + 3} className="port-label">{i + 1}</text>
-                  ))}
+                  {Array.from({ length: s.ratio }, (_, i) => {
+                    const py = s.y + 6 + i * SPL_ROW + SPL_ROW / 2;
+                    const c = tiaColor(i + 1);
+                    return (
+                      <g key={i}>
+                        <line x1={s.x + SPL_W} y1={py} x2={s.x + SPL_W + 10} y2={py} stroke="#0006" strokeWidth={4.5} />
+                        <line x1={s.x + SPL_W} y1={py} x2={s.x + SPL_W + 10} y2={py} stroke={c.hex} strokeWidth={3} />
+                        <Swatch x={s.x + SPL_W + 10} y={py - 4} w={8} h={8} c={c} />
+                        <text x={s.x + SPL_W + 22} y={py + 3} className="port-label">{i + 1}</text>
+                      </g>
+                    );
+                  })}
                 </g>
               ))}
 
               {/* Extremos clicables (encima de todo) */}
-              {d.cables.flatMap(c => c.fibers.map(f => renderEnd({ kind: 'fiber', id: f.id, port: 0 }, `${c.name} F${f.number}`)))}
+              {d.cables.flatMap(c => c.fibers.map(f => renderEnd({ kind: 'fiber', id: f.id, port: 0 }, `${c.name} F${f.number} (${fiberTia(f.number, c.fibers_per_tube ?? 12).label})`)))}
               {d.splitters.flatMap(s => [
                 renderEnd({ kind: 'splitter_in', id: s.id, port: 0 }, `${s.name} entrada`),
-                ...Array.from({ length: s.ratio }, (_, i) => renderEnd({ kind: 'splitter_out', id: s.id, port: i + 1 }, `${s.name} salida ${i + 1}`)),
+                ...Array.from({ length: s.ratio }, (_, i) => renderEnd({ kind: 'splitter_out', id: s.id, port: i + 1 }, `${s.name} salida ${i + 1} (${tiaColor(i + 1).label})`)),
               ])}
               {d.equipment.flatMap(e => {
                 if (isReceiver(e.kind)) return [renderEnd({ kind: 'equipment', id: e.id, port: 1 }, e.name)];
                 const n = e.kind === 'OLT' ? e.slots * e.ports : e.ports;
                 return Array.from({ length: n }, (_, i) => [
-                  renderEnd({ kind: 'equipment', id: e.id, port: i + 1 }, `${e.name} ${e.kind === 'ODF' ? 'A' : 'PON '}${i + 1}`),
+                  renderEnd({ kind: 'equipment', id: e.id, port: i + 1 }, `${e.name} ${e.kind === 'ODF' ? `A${i + 1}` : `PON ${i + 1} (${ponColor(e, i + 1).label})`}`),
                   e.kind === 'ODF' ? renderEnd({ kind: 'equipment', id: e.id, port: 1001 + i }, `${e.name} B${i + 1}`) : null,
                 ]).flat();
               })}

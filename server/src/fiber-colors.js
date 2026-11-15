@@ -1,18 +1,26 @@
-// Código de colores TIA-598 (12 colores) usado para hilos y tubos
+// Código de colores TIA/EIA-598 (12 colores) usado para hilos, tubos, patas de splitter y puertos PON.
+// Posiciones 13–24 repiten el color con franja negra (negro con franja amarilla).
 export const TIA_598 = [
-  { name: 'azul', hex: '#1f5fd6' },
-  { name: 'naranja', hex: '#f28c1b' },
-  { name: 'verde', hex: '#1f9d3a' },
-  { name: 'marrón', hex: '#7a4a24' },
-  { name: 'gris', hex: '#8c8c8c' },
-  { name: 'blanco', hex: '#f4f4f4' },
-  { name: 'rojo', hex: '#d62828' },
-  { name: 'negro', hex: '#151515' },
-  { name: 'amarillo', hex: '#f2d21b' },
-  { name: 'violeta', hex: '#7b3fb8' },
-  { name: 'rosa', hex: '#f08fb5' },
-  { name: 'aguamarina', hex: '#2ec4c4' },
+  { name: 'azul', hex: '#1f3f99' },
+  { name: 'anaranjado', hex: '#f47b20' },
+  { name: 'verde', hex: '#00834a' },
+  { name: 'café', hex: '#6b3a0a' },
+  { name: 'gris', hex: '#6f6f6f' },
+  { name: 'blanco', hex: '#ffffff' },
+  { name: 'rojo', hex: '#b5121b' },
+  { name: 'negro', hex: '#000000' },
+  { name: 'amarillo', hex: '#fff200' },
+  { name: 'violeta', hex: '#5f3f97' },
+  { name: 'rosa', hex: '#f6c3c8' },
+  { name: 'aqua', hex: '#00b4d0' },
 ];
+
+/** Nombre TIA-598 de la posición n (1-based), con franja a partir de 13 */
+export function tiaName(n) {
+  const i = (n - 1) % 24;
+  const base = TIA_598[i % 12].name;
+  return i < 12 ? base : `${base} con franja ${base === 'negro' ? 'amarilla' : 'negra'}`;
+}
 
 /** Devuelve tubo y colores para el hilo n (1-based) */
 export function fiberColor(n, fibersPerTube = 12) {

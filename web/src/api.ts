@@ -38,6 +38,7 @@ export interface DiagramCable {
   id: number;
   name: string;
   fiber_count: number;
+  fibers_per_tube: number;
   direction: 'in' | 'out';
   remote_name: string | null;
   fibers: Fiber[];
