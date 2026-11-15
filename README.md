@@ -19,6 +19,13 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
 4. **Domains**: apunta tu dominio al **puerto 3000**.
 5. **Deploy**. Las migraciones se aplican solas. Comprueba `https://tu-dominio/health` → `{"status":"ok","db":"ok"}`.
 
+6. **(Opcional) Rutas por calles (OSRM)**: *+ Service → App* desde este mismo repositorio, build **Dockerfile** con
+   ruta **`osrm/Dockerfile`**, puerto 5000, sin dominio. Al construirse descarga el mapa de Venezuela de OpenStreetMap
+   (Geofabrik) y lo procesa **una sola vez**; necesita ~4 GB de RAM libres durante esa primera construcción.
+   Desactiva el *auto-deploy* de ese servicio para que no se reconstruya con cada cambio de código.
+   Luego, en la app principal: `OSRM_URL=http://NOMBRE_DEL_SERVICIO_OSRM:5000`.
+   Para otra región cambia el *build arg* `OSM_PBF_URL`.
+
 > **Satélite**: la capa *Satélite* (Esri World Imagery) funciona sin clave. Para *Satélite Google* activa la
 > **Map Tiles API** en Google Cloud, crea una API key restringida por *HTTP referrer* a tu dominio y ponla en
 > `GOOGLE_MAPS_API_KEY`.
@@ -32,6 +39,7 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
 | `SEED_DEMO` | `false` | Carga la red de ejemplo si no hay elementos |
 | `GOOGLE_MAPS_API_KEY` | — | Capa satelital de Google (Map Tiles API) |
 | `MAP_CENTER` | — | Centro inicial `lat,lng` si la base está vacía |
+| `OSRM_URL` | — | Motor de rutas por calles; sin él, la ruta teórica es la línea recta |
 
 ## Funciones
 
@@ -52,9 +60,9 @@ con linterna para seguir la luz desde la OLT hasta la ONU.
 - **Trazado automático por postes**: eliges el punto A y el punto B y el sistema busca la ruta más corta por los postes
   registrados (vano máximo configurable).
   - Si **no hay postes** entre A y B, avisa y no crea el cable: lo trazas **a mano** o agregas los postes.
-  - Si la ruta por postes es **mucho más larga que la distancia directa** (por defecto 1,4×, configurable), avisa de un
-    posible rodeo y te deja elegir: **trazar por postes igualmente**, **cancelar y agregar postes** (queda una guía
-    punteada A→B) o **trazar a mano**.
+  - Si la ruta por postes es **mucho más larga que la ruta más corta por calles** (OSRM sobre OpenStreetMap; sin OSRM,
+    la línea recta) — por defecto 1,4×, configurable — avisa de un posible rodeo y te deja elegir: **trazar por postes igualmente**, **cancelar y agregar postes** (queda la ruta por calles
+    como guía punteada) o **trazar a mano**.
   - Los postes se agregan siempre a mano o importándolos desde CSV.
 - **Importar postes desde CSV** (`nombre;lat;lng;…`, separador `,` o `;`, admite coma decimal; las demás columnas se guardan como datos).
 - **Exportar el mapa a KML / KMZ** (carpetas por tipo de elemento y cables, con sus datos).

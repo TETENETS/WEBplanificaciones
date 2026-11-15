@@ -20,9 +20,16 @@ services:
     environment:
       DATABASE_URL: postgres://fttx:fttx@db:5432/fttx
       SEED_DEMO: "true"
+      # Descomentar si se levanta el servicio osrm (docker compose --profile osrm up)
+      # OSRM_URL: http://osrm:5000
     depends_on:
       db:
         condition: service_healthy
+
+  # Motor de rutas por calles (opcional). Descarga y procesa el mapa la primera vez que se construye.
+  osrm:
+    profiles: ["osrm"]
+    build: ./osrm
 
 volumes:
   pgdata:

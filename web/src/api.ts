@@ -110,7 +110,10 @@ export interface FlashlightResult {
 
 export interface AutoRoute {
   length_m: number;
-  straight_m: number;
+  /** ruta teórica: por calles (OSRM) o en línea recta */
+  reference: 'calles' | 'recta';
+  reference_m: number;
+  reference_coordinates: [number, number][];
   detour_ratio: number;
   coordinates: [number, number][];
   poles: { id: number; name: string }[];
@@ -128,7 +131,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw Object.assign(new Error(err.error || err.message || `HTTP ${res.status}`), { code: err.code as string | undefined });
+    throw Object.assign(new Error(err.error || err.message || `HTTP ${res.status}`), { code: err.code as string | undefined, data: err });
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }

@@ -43,6 +43,26 @@ export function routeThroughPoles(from, to, poles, maxSpan) {
   return { length_m: Math.round(dist[T] * 100) / 100, nodes: path.map(i => nodes[i]) };
 }
 
+/**
+ * Ruta por calles (OSRM sobre datos de OpenStreetMap). Devuelve null si OSRM_URL no está
+ * configurado o no responde: en ese caso se usa la distancia en línea recta.
+ */
+export async function streetRoute(from, to) {
+  const base = process.env.OSRM_URL;
+  if (!base) return null;
+  try {
+    const url = `${base.replace(/\/$/, '')}/route/v1/foot/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const r = data.routes?.[0];
+    if (data.code !== 'Ok' || !r) return null;
+    return { distance_m: r.distance, coordinates: r.geometry.coordinates };
+  } catch {
+    return null;
+  }
+}
+
 export default async function polesRoutes(app) {
   // Importa postes desde CSV. Columnas reconocidas: nombre/codigo, lat/latitud, lng/lon/longitud;
   // el resto de columnas se guardan como propiedades del poste.
@@ -107,7 +127,14 @@ export default async function polesRoutes(app) {
 
     // Postes candidatos: dentro de un corredor alrededor de la línea recta
     const straight = haversine(from, to);
-    const buffer = Math.max(300, straight * 0.6);
+    // Ruta teórica: por calles si hay OSRM, si no en línea recta
+    const street = await streetRoute(from, to);
+    const theory = {
+      reference: street ? 'calles' : 'recta',
+      reference_m: Math.round((street?.distance_m ?? straight) * 100) / 100,
+      reference_coordinates: street?.coordinates ?? [[from.lng, from.lat], [to.lng, to.lat]],
+    };
+    const buffer = Math.max(300, straight * 0.6, street ? (street.distance_m - straight) * 0.6 : 0);
     const { rows: poles } = await query(
       `SELECT id, name, ST_X(geom) AS lng, ST_Y(geom) AS lat FROM elements
         WHERE type='POSTE' AND id <> ALL($5) AND ST_DWithin(geom::geography,
@@ -116,7 +143,7 @@ export default async function polesRoutes(app) {
       [from.lng, from.lat, to.lng, to.lat, [a, b], buffer]);
     if (!poles.length) {
       return reply.code(422).send({
-        code: 'NO_POLES', straight_m: Math.round(straight),
+        code: 'NO_POLES', ...theory,
         error: `No hay postes entre ${from.name} y ${to.name}. El cable debe trazarse a mano.`,
       });
     }
@@ -125,7 +152,7 @@ export default async function polesRoutes(app) {
     const route = routeThroughPoles(from, to, usable, maxSpan);
     if (!route) {
       return reply.code(422).send({
-        code: 'NO_POLES', straight_m: Math.round(straight),
+        code: 'NO_POLES', ...theory,
         error: `No hay una ruta continua de postes (vano máximo ${maxSpan} m) entre ${from.name} y ${to.name}. ` +
           'El cable debe trazarse a mano, o agrega los postes que faltan.',
       });
@@ -133,9 +160,9 @@ export default async function polesRoutes(app) {
     const polesUsed = route.nodes.slice(1, -1);
     return {
       length_m: route.length_m,
-      // distancia directa y cuánto más larga es la ruta por postes (para avisar de rodeos)
-      straight_m: Math.round(straight * 100) / 100,
-      detour_ratio: Math.round((route.length_m / straight) * 100) / 100,
+      // ruta teórica (calles o línea recta) y cuánto más larga es la ruta por postes (para avisar de rodeos)
+      ...theory,
+      detour_ratio: Math.round((route.length_m / Math.max(theory.reference_m, 1)) * 100) / 100,
       coordinates: route.nodes.map(p => [p.lng, p.lat]),
       poles: polesUsed.map(p => ({ id: p.id, name: p.name })),
     };
